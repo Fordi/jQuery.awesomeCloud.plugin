@@ -60,7 +60,8 @@ Extra Thanks:
 	My original layout worked, but this one was much better.
  */
 
-( function( $ ) {
+( function(global, $) {
+	if (!$) return;
 	"use strict";
 	var pluginName = "awesomeCloud", // name of the plugin, mainly for canvas IDs
 	defaultSettings = {
@@ -219,8 +220,7 @@ Extra Thanks:
 						}
 					};
 					break;
-				case "circle":
-				default:
+				default: //case: "circle":
 					this.settings.shape = function( theta ) {
 						return 1;
 					};
@@ -412,14 +412,14 @@ Extra Thanks:
 			this.ctx.fillRect( 0, 0, this.ngx * ( this.settings.gridSize + 1 ), this.ngy * ( this.settings.gridSize + 1 ) );
 			this.ctx.textBaseline = "top";
 			i = 0;
-			window.setImmediate(
+			global.setImmediate(
 				function loop() {
 					if ( i >= $this.words.length ) {
 						return;
 					}
 					$this.putWord( $this.words[ i ][ 0 ], $this.words[ i ][ 1 ] );
 					i++;
-					window.setImmediate( loop );
+					global.setImmediate( loop );
 				}
 			);
 			$this.allDone( ctxID );
@@ -456,27 +456,31 @@ Extra Thanks:
 			return 0;
 		},
 		createCanvas : function ( options ) {
-			var canvasID = options.id,
-			canvasDOM,
-			parent = $( "body" );
-			if ( options.parent !== undefined ) {
-				parent = options.parent;
-			}
-			parent.append( "<canvas id=\"" + canvasID + "\" width=\"" + options.width + "\" height=\"" + options.height + "\">.</canvas>" );
-			$( "#" + canvasID ).css( "visibility", "hidden" );
-			$( "#" + canvasID ).css( "display", "none" );
-			$( "#" + canvasID ).css( "position", "relative" );
-			$( "#" + canvasID ).css( "z-index", 10000 );
-			$( "#" + canvasID ).width( options.width );
-			$( "#" + canvasID ).height( options.height );
-			$( "#" + canvasID ).offset( { top: options.top, left: options.left } );
-			canvasDOM = document.getElementById( canvasID );
-			canvasDOM.setAttribute( "width", options.width );
-			canvasDOM.setAttribute( "height", options.height );
-			return canvasDOM.getContext( "2d" );
+			var canvas = $('<canvas>')
+				.attr({
+					id: options.id,
+					width: options.width,
+					height: options.height
+				})
+				.css({
+					visibility: "hidden",
+					display: "none",
+					//zIndex: 10000, //Why is this here?  It gets in the way of doing normal things, like menuing and dialogs.
+					position: "relative",
+					width: options.width,
+					height: options.height,
+					top: options.top,
+					left: options.left
+				})
+				.appendTo(options.parent || $("body"))
+				.get(0)
+				.getContext('2d');
+			return canvas;
 		},
 		destroyCanvas : function ( id ) {
-			$( "#" + id ).remove();
+			if (this.canvas) {
+				this.canvas.remove();
+			}
 		},
 		putWord : function ( word, weight ) {
 			var $this = this,
@@ -875,71 +879,78 @@ Extra Thanks:
 			};
 		}
 	};
-} )( jQuery );
-
-// http://jsfromhell.com/array/shuffle
-Array.prototype.shuffle = function () {
+} )( this, this.jQuery );
+(function polyFills(global) {
 	"use strict";
-	for ( var j, x, i = this.length; i; j = parseInt( Math.random() * i, 10 ), x = this[ --i ], this[ i ] = this[ j ], this[ j ] = x );
-	return this;
-};
+	// http://jsfromhell.com/array/shuffle
+	Array.prototype.shuffle = function () {
+		for ( var j, x, i = this.length; i; j = parseInt( Math.random() * i, 10 ), x = this[ --i ], this[ i ] = this[ j ], this[ j ] = x );
+		return this;
+	};
 
-// setImmediate polyfill.
-if ( !window.setImmediate ) {
-	window.setImmediate = ( function () {
-		"use strict";
-		return window.msSetImmediate || window.webkitSetImmediate || window.mozSetImmediate || window.oSetImmediate || ( function () {
-			// setZeroTimeout: "hack" based on postMessage
-			// modified from http://dbaron.org/log/20100309-faster-timeouts
-			if ( window.postMessage && window.addEventListener ) {
-				var timeouts = [],
-				timerPassed = -1,
-				timerIssued = -1,
-				messageName = "zero-timeout-message",
-				// Like setTimeout, but only takes a function argument. There's
-				// no time argument (always zero) and no arguments (you have to
-				// use a closure).
-				setZeroTimeout = function ( fn ) {
-					timeouts.push( fn );
-					window.postMessage( messageName, "*" );
-					return ++timerIssued;
-				},
-				handleMessage = function ( event ) {
-					// Skipping checking event source, IE confused this window object with another in the presence of iframe
-					if ( /*event.source === window && */event.data === messageName ) {
-						event.stopPropagation();
-						if ( timeouts.length > 0 ) {
-							var fn = timeouts.shift();
-							fn();
-							timerPassed++;
+	// setImmediate polyfill.
+	if ( !global.setImmediate ) {
+		global.setImmediate = ( function () {
+			return global.msSetImmediate || global.webkitSetImmediate || global.mozSetImmediate || global.oSetImmediate || ( function () {
+				// setZeroTimeout: "hack" based on postMessage
+				// modified from http://dbaron.org/log/20100309-faster-timeouts
+				if ( global.postMessage && global.addEventListener ) {
+					var timeouts = [],
+					timerPassed = -1,
+					timerIssued = -1,
+					messageName = "zero-timeout-message",
+					// Like setTimeout, but only takes a function argument. There's
+					// no time argument (always zero) and no arguments (you have to
+					// use a closure).
+					setZeroTimeout = function ( fn ) {
+						timeouts.push( fn );
+						global.postMessage( messageName, "*" );
+						return ++timerIssued;
+					},
+					handleMessage = function ( event ) {
+						// Skipping checking event source, IE confused this window object with another in the presence of iframe
+						if ( /*event.source === window && */event.data === messageName ) {
+							event.stopPropagation();
+							if ( timeouts.length > 0 ) {
+								var fn = timeouts.shift();
+								fn();
+								timerPassed++;
+							}
 						}
-					}
-				},
-				fnId;
-				window.addEventListener( "message", handleMessage, true );
-				window.clearImmediate = function ( timer ) {
-					if ( typeof timer !== "number" || timer > timerIssued ) {
-						return;
-					}
-					fnId = timer - timerPassed - 1;
-					timeouts[ fnId ] = ( function () {} ); // overwrite the original fn
-				};
-				// Add the one thing we want added to the window object.
-				return setZeroTimeout;
-			}
-		} )() || function ( fn ) {
-			// fallback
-			window.setTimeout( fn, 0 );
-		};
-	} )();
-}
-if ( !window.clearImmediate ) {
-	window.clearImmediate = ( function () {
-		"use strict";
-		return window.msClearImmediate || window.webkitClearImmediate || window.mozClearImmediate || window.oClearImmediate || function ( timer ) {
-			// "clearZeroTimeout" is implement on the previous block ||
-			// fallback
-			window.clearTimeout( timer );
-		};
-	} )();
-}
+					},
+					fnId;
+					global.addEventListener( "message", handleMessage, true );
+					global.clearImmediate = function ( timer ) {
+						if ( typeof timer !== "number" || timer > timerIssued ) {
+							return;
+						}
+						fnId = timer - timerPassed - 1;
+						timeouts[ fnId ] = ( function () {} ); // overwrite the original fn
+					};
+					// Add the one thing we want added to the window object.
+					return setZeroTimeout;
+				}
+			} )() || function ( fn ) {
+				// fallback
+				global.setTimeout( fn, 0 );
+			};
+		} )();
+	}
+	if ( !global.clearImmediate ) {
+		global.clearImmediate = ( function () {
+			return global.msClearImmediate || global.webkitClearImmediate || global.mozClearImmediate || global.oClearImmediate || function ( timer ) {
+				// "clearZeroTimeout" is implement on the previous block ||
+				// fallback
+				global.clearTimeout( timer );
+			};
+		} )();
+	}
+	Number.prototype.times = function (fn, context) {
+		if (this <= 0) { return; }
+		var ct, ret = [];
+		for (ct = 0; ct < this; ct += 1) {
+			ret.push(fn.call(context, ct, this));
+		}
+		return ret;
+	};
+}(this));
